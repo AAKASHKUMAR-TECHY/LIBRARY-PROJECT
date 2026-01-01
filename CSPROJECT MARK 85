@@ -1,0 +1,2135 @@
+import customtkinter as ctk
+import mysql.connector as mysq
+import hashlib
+import datetime
+from tkinter import messagebox
+from PIL import Image
+import tkinter as tk
+
+# Configure appearance
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
+
+# Global variables
+connection = None
+current_user = None
+user_role = None
+root = ctk.CTk()
+content_frame = None
+search_entry = None
+books_container = None
+search_results_frame = None
+book_fields = {}
+signup_entries = {}
+search_type = None
+search_entry_advanced = None
+books_management_frame = None  # Added as global variable
+
+def connect_db():
+    """Establish database connection"""
+    global connection
+    try:
+        connection = mysq.connect(
+            host='localhost',
+            user='root',
+            password='Ammu@2611',
+            database='library',
+            autocommit=False
+        )
+        print("✅ Database connected successfully!")
+    except mysq.Error as e:
+        show_message("Database Error", f"Failed to connect to database:\n{e}", "error")
+
+def hash_password(password):
+    """Hash password using SHA-256"""
+    if password == "admin123":
+        return "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def show_message(title, message, message_type="info"):
+    """Show modern message box"""
+    if message_type == "error":
+        messagebox.showerror(title, message)
+    elif message_type == "warning":
+        messagebox.showwarning(title, message)
+    else:
+        messagebox.showinfo(title, message)
+
+def setup_gui():
+    """Setup the professional BookNest GUI"""
+    root.title("📚 BookNest - Modern Library Management")
+    root.state('zoomed')
+    show_login_screen()
+
+def clear_window():
+    """Clear all widgets from window"""
+    for widget in root.winfo_children():
+        widget.destroy()
+
+def show_login_screen():
+    """Show modern login screen"""
+    clear_window()
+    
+    # Main container
+    main_frame = ctk.CTkFrame(root, fg_color=("gray90", "gray16"))
+    main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+    
+    # Left side - Branding
+    left_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+    left_frame.pack(side="left", fill="both", expand=True, padx=20, pady=40)
+    
+    title_label = ctk.CTkLabel(
+        left_frame,
+        text="📚 BookNest",
+        font=ctk.CTkFont(size=40, weight="bold"),
+        text_color="#2E86AB"
+    )
+    title_label.pack(pady=(50, 10))
+    
+    subtitle_label = ctk.CTkLabel(
+        left_frame,
+        text="Your Digital Library Haven",
+        font=ctk.CTkFont(size=18),
+        text_color="gray50"
+    )
+    subtitle_label.pack(pady=(0, 40))
+    
+    features = [
+        "🌟 Discover thousands of books",
+        "🔐 Secure user authentication",  
+        "📱 Modern, responsive design",
+        "📊 Smart book recommendations",
+        "👥 Community reviews and ratings"
+    ]
+    
+    for feature in features:
+        feature_label = ctk.CTkLabel(
+            left_frame,
+            text=feature,
+            font=ctk.CTkFont(size=14),
+            text_color="gray60"
+        )
+        feature_label.pack(anchor="w", pady=5)
+    
+    # Right side - Login forms
+    right_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+    right_frame.pack(side="right", fill="both", expand=True, padx=20, pady=40)
+    
+    # Student Login Card
+    student_card = ctk.CTkFrame(right_frame, corner_radius=15)
+    student_card.pack(fill="x", pady=10, padx=10)
+    
+    ctk.CTkLabel(
+        student_card,
+        text="🎓 Student Portal",
+        font=ctk.CTkFont(size=20, weight="bold")
+    ).pack(pady=20)
+    
+    student_username = ctk.CTkEntry(
+        student_card,
+        placeholder_text="Username",
+        width=300,
+        height=40
+    )
+    student_username.pack(pady=10)
+    
+    student_password = ctk.CTkEntry(
+        student_card,
+        placeholder_text="Password",
+        width=300,
+        height=40,
+        show="•"
+    )
+    student_password.pack(pady=10)
+    
+    ctk.CTkButton(
+        student_card,
+        text="Student Login",
+        command=lambda: student_login(student_username.get(), student_password.get()),
+        height=40,
+        fg_color="#2E86AB",
+        hover_color="#1B5E7D"
+    ).pack(pady=15)
+    
+    ctk.CTkButton(
+        student_card,
+        text="Create Student Account",
+        command=show_student_signup,
+        height=35,
+        fg_color="transparent",
+        border_width=2,
+        text_color=("gray10", "gray90"),
+        border_color=("gray70", "gray30")
+    ).pack(pady=5)
+    
+    # Admin Login Card
+    admin_card = ctk.CTkFrame(right_frame, corner_radius=15)
+    admin_card.pack(fill="x", pady=10, padx=10)
+    
+    ctk.CTkLabel(
+        admin_card,
+        text="👑 Admin Portal",
+        font=ctk.CTkFont(size=20, weight="bold")
+    ).pack(pady=20)
+    
+    admin_username = ctk.CTkEntry(
+        admin_card,
+        placeholder_text="Admin Username",
+        width=300,
+        height=40
+    )
+    admin_username.pack(pady=10)
+    
+    admin_password = ctk.CTkEntry(
+        admin_card,
+        placeholder_text="Admin Password",
+        width=300,
+        height=40,
+        show="•"
+    )
+    admin_password.pack(pady=10)
+    
+    ctk.CTkButton(
+        admin_card,
+        text="Admin Login",
+        command=lambda: admin_login(admin_username.get(), admin_password.get()),
+        height=40,
+        fg_color="#A23B72",
+        hover_color="#7D2C58"
+    ).pack(pady=15)
+    
+    # Demo credentials
+    demo_frame = ctk.CTkFrame(right_frame, fg_color="transparent")
+    demo_frame.pack(fill="x", pady=20)
+    
+    ctk.CTkLabel(
+        demo_frame,
+        text="Demo Credentials:",
+        font=ctk.CTkFont(weight="bold")
+    ).pack()
+    
+    ctk.CTkLabel(
+        demo_frame,
+        text="Admin: superadmin / admin123",
+        text_color="gray50"
+    ).pack()
+
+def show_student_signup():
+    """Show student signup dialog"""
+    dialog = ctk.CTkToplevel(root)
+    dialog.title("Student Registration - BookNest")
+    dialog.geometry("500x600")
+    dialog.transient(root)
+    dialog.grab_set()
+    
+    ctk.CTkLabel(
+        dialog,
+        text="🎓 Join BookNest",
+        font=ctk.CTkFont(size=24, weight="bold")
+    ).pack(pady=30)
+    
+    # Registration form
+    form_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+    form_frame.pack(fill="both", expand=True, padx=40, pady=20)
+    
+    fields = [
+        ("Username", "username", False),
+        ("Password", "password", True),
+        ("Email", "email", False),
+        ("Full Name", "full_name", False)
+    ]
+    
+    signup_entries_local = {}
+    
+    for label, key, is_password in fields:
+        ctk.CTkLabel(form_frame, text=label, font=ctk.CTkFont(weight="bold")).pack(anchor="w", pady=(15, 5))
+        entry = ctk.CTkEntry(
+            form_frame,
+            placeholder_text=f"Enter your {label.lower()}",
+            width=400,
+            height=40,
+            show="•" if is_password else None
+        )
+        entry.pack(fill="x", pady=5)
+        signup_entries_local[key] = entry
+    
+    def register():
+        username = signup_entries_local['username'].get()
+        password = signup_entries_local['password'].get()
+        email = signup_entries_local['email'].get()
+        full_name = signup_entries_local['full_name'].get()
+        
+        if student_signup(username, password, email, full_name):
+            dialog.destroy()
+            show_message("Welcome to BookNest!", "Registration successful! You can now login.", "info")
+    
+    ctk.CTkButton(
+        dialog,
+        text="Create Account",
+        command=register,
+        height=45,
+        fg_color="#2E86AB"
+    ).pack(pady=30)
+
+def student_signup(username, password, email, full_name):
+    """Student registration"""
+    try:
+        if not all([username, password, email, full_name]):
+            show_message("Registration Error", "All fields are required!", "error")
+            return False
+        
+        if len(password) < 4:
+            show_message("Registration Error", "Password must be at least 4 characters!", "error")
+            return False
+        
+        cursor = connection.cursor()
+        cursor.execute("SELECT username FROM students WHERE username = %s", (username,))
+        if cursor.fetchone():
+            show_message("Registration Error", "Username already exists!", "error")
+            return False
+        
+        hashed_password = hash_password(password)
+        cursor.execute(
+            "INSERT INTO students (username, password, email, full_name) VALUES (%s, %s, %s, %s)",
+            (username, hashed_password, email, full_name)
+        )
+        connection.commit()
+        cursor.close()
+        return True
+        
+    except Exception as e:
+        show_message("Registration Error", f"Registration failed: {e}", "error")
+        return False
+
+def student_login(username, password):
+    """Student login"""
+    global current_user, user_role
+    
+    if not username or not password:
+        show_message("Login Error", "Please enter both username and password!", "error")
+        return
+    
+    try:
+        hashed_password = hash_password(password)
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT username, full_name FROM students WHERE username = %s AND password = %s",
+            (username, hashed_password)
+        )
+        student = cursor.fetchone()
+        
+        if student:
+            current_user = student[0]
+            user_role = "student"
+            show_message("Welcome!", f"Welcome to BookNest, {student[1]}!", "info")
+            show_student_dashboard()
+        else:
+            show_message("Login Error", "Invalid username or password!", "error")
+        
+        cursor.close()
+            
+    except Exception as e:
+        show_message("Login Error", f"Login failed: {e}", "error")
+
+def admin_login(username, password):
+    """Admin login"""
+    global current_user, user_role
+    
+    if not username or not password:
+        show_message("Login Error", "Please enter both username and password!", "error")
+        return
+    
+    try:
+        hashed_password = hash_password(password)
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT username, admin_level FROM admins WHERE username = %s AND password = %s",
+            (username, hashed_password)
+        )
+        admin = cursor.fetchone()
+        
+        if admin:
+            current_user = admin[0]
+            user_role = admin[1]
+            show_message("Welcome!", f"Welcome {admin[0]} ({admin[1]})!", "info")
+            if admin[1] == 'superadmin':
+                show_superadmin_dashboard()
+            else:
+                show_librarian_dashboard()
+        else:
+            show_message("Login Error", "Invalid admin credentials!", "error")
+        
+        cursor.close()
+            
+    except Exception as e:
+        show_message("Login Error", f"Login failed: {e}", "error")
+
+def show_student_dashboard():
+    """Show student dashboard"""
+    clear_window()
+    
+    # Header
+    header_frame = ctk.CTkFrame(root, height=80, fg_color="#2E86AB")
+    header_frame.pack(fill="x", padx=20, pady=10)
+    header_frame.pack_propagate(False)
+    
+    ctk.CTkLabel(
+        header_frame,
+        text=f"🎓 Welcome to BookNest, {current_user}!",
+        font=ctk.CTkFont(size=22, weight="bold"),
+        text_color="white"
+    ).pack(side="left", padx=30, pady=20)
+    
+    ctk.CTkButton(
+        header_frame,
+        text="🚪 Logout",
+        command=logout,
+        width=100,
+        fg_color="transparent",
+        border_width=2,
+        border_color="white",
+        text_color="white",
+        hover_color="#1B5E7D"
+    ).pack(side="right", padx=30, pady=20)
+    
+    # Navigation sidebar
+    nav_frame = ctk.CTkFrame(root, width=250, fg_color=("gray90", "gray16"))
+    nav_frame.pack(side="left", fill="y", padx=(20, 10), pady=20)
+    nav_frame.pack_propagate(False)
+    
+    nav_buttons = [
+        ("📚 Browse Books", show_book_browse),
+        ("🔍 Search", show_book_search),
+        ("📖 My Books", show_my_books),
+        ("📊 History", show_my_history),
+        ("👤 Profile", show_profile)
+    ]
+    
+    for text, command in nav_buttons:
+        btn = ctk.CTkButton(
+            nav_frame,
+            text=text,
+            command=command,
+            height=50,
+            fg_color="transparent",
+            text_color=("gray10", "gray90"),
+            hover_color=("gray70", "gray30"),
+            anchor="w",
+            font=ctk.CTkFont(size=14)
+        )
+        btn.pack(fill="x", padx=10, pady=5)
+    
+    # Main content area
+    global content_frame
+    content_frame = ctk.CTkFrame(root, fg_color="transparent")
+    content_frame.pack(side="right", fill="both", expand=True, padx=(10, 20), pady=20)
+    
+    show_book_browse()
+
+def show_book_browse():
+    """Show book browsing interface"""
+    clear_content()
+    
+    ctk.CTkLabel(
+        content_frame,
+        text="📚 Discover Books",
+        font=ctk.CTkFont(size=28, weight="bold")
+    ).pack(pady=20)
+    
+    # Search bar
+    search_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    search_frame.pack(fill="x", pady=20, padx=20)
+    
+    global search_entry
+    search_entry = ctk.CTkEntry(
+        search_frame,
+        placeholder_text="Search books by title, author, or genre...",
+        height=45,
+        width=400
+    )
+    search_entry.pack(side="left", padx=(0, 10))
+    
+    ctk.CTkButton(
+        search_frame,
+        text="🔍 Search",
+        command=perform_search,
+        height=45,
+        width=100
+    ).pack(side="left", padx=(0, 10))
+    
+    ctk.CTkButton(
+        search_frame,
+        text="🔄 Show All",
+        command=lambda: display_books(""),
+        height=45,
+        width=100,
+        fg_color="transparent",
+        border_width=2
+    ).pack(side="left")
+    
+    # Books grid
+    global books_container
+    books_container = ctk.CTkScrollableFrame(content_frame, fg_color="transparent")
+    books_container.pack(fill="both", expand=True, padx=20, pady=20)
+    
+    display_books("")
+
+def display_books(search_term):
+    """Display books in a modern grid"""
+    for widget in books_container.winfo_children():
+        widget.destroy()
+    
+    try:
+        cursor = connection.cursor()
+        
+        if search_term:
+            cursor.execute("""
+                SELECT * FROM books_available 
+                WHERE availability > 0 AND 
+                (book_name LIKE %s OR author_name LIKE %s OR genre LIKE %s)
+            """, (f"%{search_term}%", f"%{search_term}%", f"%{search_term}%"))
+        else:
+            cursor.execute("SELECT * FROM books_available WHERE availability > 0")
+        
+        books = cursor.fetchall()
+        
+        if books:
+            # Create grid layout
+            row, col = 0, 0
+            max_cols = 3
+            
+            for book in books:
+                book_frame = ctk.CTkFrame(
+                    books_container, 
+                    width=300, 
+                    height=200,
+                    corner_radius=15
+                )
+                book_frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+                book_frame.grid_propagate(False)
+                
+                # Book info
+                ctk.CTkLabel(
+                    book_frame,
+                    text=book[1][:30] + "..." if len(book[1]) > 30 else book[1],
+                    font=ctk.CTkFont(size=14, weight="bold"),
+                    wraplength=250
+                ).pack(pady=(15, 5), padx=15)
+                
+                ctk.CTkLabel(
+                    book_frame,
+                    text=f"by {book[2]}",
+                    font=ctk.CTkFont(size=12),
+                    text_color="gray"
+                ).pack(pady=(0, 10))
+                
+                ctk.CTkLabel(
+                    book_frame,
+                    text=f"Genre: {book[4]}",
+                    font=ctk.CTkFont(size=11)
+                ).pack(pady=2)
+                
+                ctk.CTkLabel(
+                    book_frame,
+                    text=f"Available: {book[5]}",
+                    font=ctk.CTkFont(size=11, weight="bold"),
+                    text_color="#2E86AB"
+                ).pack(pady=2)
+                
+                # Borrow button
+                ctk.CTkButton(
+                    book_frame,
+                    text="📖 Borrow",
+                    command=lambda b=book: borrow_book_dialog(b),
+                    width=120,
+                    height=35,
+                    fg_color="#2E86AB"
+                ).pack(pady=10)
+                
+                col += 1
+                if col >= max_cols:
+                    col = 0
+                    row += 1
+            
+            # Configure grid weights
+            for i in range(max_cols):
+                books_container.grid_columnconfigure(i, weight=1)
+            
+        else:
+            ctk.CTkLabel(
+                books_container,
+                text="📚 No books found",
+                font=ctk.CTkFont(size=16),
+                text_color="gray"
+            ).pack(expand=True)
+        
+        cursor.close()
+            
+    except Exception as e:
+        show_message("Error", f"Failed to load books: {e}", "error")
+
+def perform_search():
+    """Perform book search"""
+    search_term = search_entry.get()
+    display_books(search_term)
+
+def borrow_book_dialog(book):
+    """Show borrow book dialog"""
+    dialog = ctk.CTkToplevel(root)
+    dialog.title(f"Borrow {book[1]}")
+    dialog.geometry("400x300")
+    dialog.transient(root)
+    dialog.grab_set()
+    
+    ctk.CTkLabel(
+        dialog,
+        text=f"📖 {book[1]}",
+        font=ctk.CTkFont(size=20, weight="bold")
+    ).pack(pady=20)
+    
+    ctk.CTkLabel(
+        dialog,
+        text=f"by {book[2]}",
+        font=ctk.CTkFont(size=14),
+        text_color="gray"
+    ).pack(pady=5)
+    
+    ctk.CTkLabel(
+        dialog,
+        text=f"Available copies: {book[5]}",
+        font=ctk.CTkFont(size=12)
+    ).pack(pady=10)
+    
+    ctk.CTkLabel(dialog, text="Number of copies to borrow:").pack(pady=10)
+    
+    count_var = ctk.StringVar(value="1")
+    count_entry = ctk.CTkEntry(
+        dialog,
+        textvariable=count_var,
+        width=100,
+        height=35
+    )
+    count_entry.pack(pady=10)
+    
+    def borrow():
+        try:
+            count = int(count_var.get())
+            if count <= 0:
+                show_message("Error", "Please enter a positive number!", "error")
+                return
+            borrow_book(book[0], count)
+            dialog.destroy()
+        except ValueError:
+            show_message("Error", "Please enter a valid number!", "error")
+    
+    ctk.CTkButton(
+        dialog,
+        text="📖 Borrow Now",
+        command=borrow,
+        height=45,
+        fg_color="#2E86AB"
+    ).pack(pady=20)
+
+def borrow_book(book_id, count):
+    """Borrow a book"""
+    try:
+        cursor = connection.cursor()
+        
+        # Check availability
+        cursor.execute("SELECT * FROM books_available WHERE bookid = %s", (book_id,))
+        book = cursor.fetchone()
+        
+        if not book:
+            show_message("Error", "Book not found!", "error")
+            cursor.close()
+            return
+        
+        if book[5] < count:
+            show_message("Error", f"Only {book[5]} copies available!", "error")
+            cursor.close()
+            return
+        
+        # Calculate due date
+        due_date = datetime.datetime.now() + datetime.timedelta(days=14)
+        
+        # Check if book already borrowed by user
+        cursor.execute(
+            "SELECT count FROM books_borrowed WHERE bookid = %s AND user = %s",
+            (book_id, current_user)
+        )
+        existing_borrow = cursor.fetchone()
+        
+        if existing_borrow:
+            # Update existing borrow
+            cursor.execute(
+                "UPDATE books_borrowed SET count = count + %s WHERE bookid = %s AND user = %s",
+                (count, book_id, current_user)
+            )
+        else:
+            # Create new borrow record
+            cursor.execute(
+                "INSERT INTO books_borrowed (bookid, book_name, author_name, year_of_publication, genre, count, user, due_date) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                (book[0], book[1], book[2], book[3], book[4], count, current_user, due_date)
+            )
+        
+        # Add to history
+        cursor.execute(
+            "INSERT INTO borrowed_history (bookid, book_name, author_name, year_of_publication, genre, count, user, borrowed_date, status) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), 'borrowed')",
+            (book[0], book[1], book[2], book[3], book[4], count, current_user)
+        )
+        
+        # Update availability
+        cursor.execute(
+            "UPDATE books_available SET availability = availability - %s WHERE bookid = %s",
+            (count, book_id)
+        )
+        
+        connection.commit()
+        cursor.close()
+        
+        show_message(
+            "Success!", 
+            f"✅ Successfully borrowed {count} copy/copies of '{book[1]}'\n📅 Due date: {due_date.strftime('%Y-%m-%d')}", 
+            "info"
+        )
+        show_my_books()
+        
+    except Exception as e:
+        show_message("Error", f"Failed to borrow book: {e}", "error")
+
+def show_my_books():
+    """Show user's currently borrowed books"""
+    clear_content()
+    
+    ctk.CTkLabel(
+        content_frame,
+        text="📖 My Books",
+        font=ctk.CTkFont(size=28, weight="bold")
+    ).pack(pady=20)
+    
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT * FROM books_borrowed WHERE user = %s ORDER BY borrowed_date DESC",
+            (current_user,)
+        )
+        borrowed_books = cursor.fetchall()
+        
+        if borrowed_books:
+            books_frame = ctk.CTkScrollableFrame(content_frame, fg_color="transparent")
+            books_frame.pack(fill="both", expand=True, padx=20, pady=20)
+            
+            for book in borrowed_books:
+                book_card = ctk.CTkFrame(books_frame, corner_radius=15, height=120)
+                book_card.pack(fill="x", pady=10, padx=10)
+                book_card.pack_propagate(False)
+                
+                # Book info
+                info_frame = ctk.CTkFrame(book_card, fg_color="transparent")
+                info_frame.pack(side="left", fill="both", expand=True, padx=20, pady=15)
+                
+                ctk.CTkLabel(
+                    info_frame,
+                    text=book[2],
+                    font=ctk.CTkFont(size=16, weight="bold"),
+                    anchor="w"
+                ).pack(anchor="w")
+                
+                ctk.CTkLabel(
+                    info_frame,
+                    text=f"by {book[3]} • {book[6]} copies",
+                    font=ctk.CTkFont(size=12),
+                    text_color="gray",
+                    anchor="w"
+                ).pack(anchor="w", pady=5)
+                
+                due_date = book[8] if book[8] else "Not set"
+                if isinstance(due_date, datetime.datetime):
+                    due_date = due_date.strftime('%Y-%m-%d')
+                
+                ctk.CTkLabel(
+                    info_frame,
+                    text=f"Due: {due_date}",
+                    font=ctk.CTkFont(size=11, weight="bold"),
+                    text_color="#E74C3C",
+                    anchor="w"
+                ).pack(anchor="w")
+                
+                # Return button
+                ctk.CTkButton(
+                    book_card,
+                    text="↩️ Return",
+                    command=lambda b=book: return_book_dialog(b),
+                    width=100,
+                    height=35,
+                    fg_color="#E74C3C",
+                    hover_color="#C0392B"
+                ).pack(side="right", padx=20, pady=15)
+                
+        else:
+            ctk.CTkLabel(
+                content_frame,
+                text="📚 You haven't borrowed any books yet",
+                font=ctk.CTkFont(size=16),
+                text_color="gray"
+            ).pack(expand=True)
+        
+        cursor.close()
+            
+    except Exception as e:
+        show_message("Error", f"Failed to load your books: {e}", "error")
+
+def return_book_dialog(book):
+    """Show return book dialog"""
+    dialog = ctk.CTkToplevel(root)
+    dialog.title(f"Return {book[2]}")
+    dialog.geometry("400x250")
+    dialog.transient(root)
+    dialog.grab_set()
+    
+    ctk.CTkLabel(
+        dialog,
+        text=f"↩️ Return {book[2]}",
+        font=ctk.CTkFont(size=20, weight="bold")
+    ).pack(pady=20)
+    
+    ctk.CTkLabel(
+        dialog,
+        text=f"Currently borrowed: {book[6]} copies",
+        font=ctk.CTkFont(size=14)
+    ).pack(pady=10)
+    
+    ctk.CTkLabel(dialog, text="Number of copies to return:").pack(pady=10)
+    
+    count_var = ctk.StringVar(value=str(book[6]))
+    count_entry = ctk.CTkEntry(
+        dialog,
+        textvariable=count_var,
+        width=100,
+        height=35
+    )
+    count_entry.pack(pady=10)
+    
+    def return_book():
+        try:
+            count = int(count_var.get())
+            if count <= 0 or count > book[6]:
+                show_message("Error", f"Please enter a number between 1 and {book[6]}!", "error")
+                return
+            return_book_func(book[1], count)
+            dialog.destroy()
+        except ValueError:
+            show_message("Error", "Please enter a valid number!", "error")
+    
+    ctk.CTkButton(
+        dialog,
+        text="↩️ Return Books",
+        command=return_book,
+        height=45,
+        fg_color="#27AE60"
+    ).pack(pady=20)
+
+def return_book_func(book_id, count):
+    """Return a borrowed book"""
+    try:
+        cursor = connection.cursor()
+        
+        # Get book details for history
+        cursor.execute("SELECT book_name, author_name FROM books_borrowed WHERE bookid = %s AND user = %s", (book_id, current_user))
+        book_details = cursor.fetchone()
+        
+        if book_details:
+            # Update history
+            cursor.execute(
+                "UPDATE borrowed_history SET returned_date = NOW(), status = 'returned' WHERE bookid = %s AND user = %s AND status = 'borrowed' LIMIT 1",
+                (book_id, current_user)
+            )
+            
+            # Update availability
+            cursor.execute(
+                "UPDATE books_available SET availability = availability + %s WHERE bookid = %s",
+                (count, book_id)
+            )
+            
+            # Remove from borrowed or update count
+            cursor.execute("SELECT count FROM books_borrowed WHERE bookid = %s AND user = %s", (book_id, current_user))
+            current_count = cursor.fetchone()[0]
+            
+            if current_count == count:
+                # Remove completely
+                cursor.execute("DELETE FROM books_borrowed WHERE bookid = %s AND user = %s", (book_id, current_user))
+            else:
+                # Update count
+                cursor.execute(
+                    "UPDATE books_borrowed SET count = count - %s WHERE bookid = %s AND user = %s",
+                    (count, book_id, current_user)
+                )
+            
+            connection.commit()
+            
+            show_message("Success!", f"✅ Successfully returned {count} copy/copies of '{book_details[0]}'!", "info")
+            show_my_books()
+        else:
+            show_message("Error", "Book not found in your borrowed list!", "error")
+        
+        cursor.close()
+        
+    except Exception as e:
+        show_message("Error", f"Failed to return book: {e}", "error")
+
+def show_my_history():
+    """Show user's borrowing history"""
+    clear_content()
+    
+    ctk.CTkLabel(
+        content_frame,
+        text="📊 My Reading History",
+        font=ctk.CTkFont(size=28, weight="bold")
+    ).pack(pady=20)
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Simple query that should work with any table structure
+        cursor.execute("""
+            SELECT 
+                book_name, 
+                author_name, 
+                DATE_FORMAT(borrowed_date, '%%Y-%%m-%%d') as borrowed,
+                COALESCE(DATE_FORMAT(returned_date, '%%Y-%%m-%%d'), 'Not returned') as returned,
+                status,
+                COALESCE(count, 1) as copies
+            FROM borrowed_history 
+            WHERE user = %s 
+            ORDER BY borrowed_date DESC
+        """, (current_user,))
+        history = cursor.fetchall()
+        
+        if history:
+            # Create a modern table-like view
+            history_frame = ctk.CTkScrollableFrame(content_frame, fg_color="transparent")
+            history_frame.pack(fill="both", expand=True, padx=20, pady=20)
+            
+            # Header
+            header_frame = ctk.CTkFrame(history_frame, height=50)
+            header_frame.pack(fill="x", pady=(0, 10))
+            header_frame.pack_propagate(False)
+            
+            headers = ["Book", "Author", "Copies", "Borrowed", "Returned", "Status"]
+            widths = [200, 150, 80, 100, 100, 80]
+            
+            for i, (header, width) in enumerate(zip(headers, widths)):
+                ctk.CTkLabel(
+                    header_frame,
+                    text=header,
+                    font=ctk.CTkFont(weight="bold"),
+                    width=width
+                ).place(x=sum(widths[:i]) + i*10, y=15)
+            
+            # History items
+            for record in history:
+                item_frame = ctk.CTkFrame(history_frame, height=60)
+                item_frame.pack(fill="x", pady=5)
+                item_frame.pack_propagate(False)
+                
+                # Extract data - using string values already formatted by MySQL
+                book_name = str(record[0]) if record[0] else "Unknown"
+                author_name = str(record[1]) if record[1] else "Unknown"
+                borrowed_str = str(record[2]) if record[2] else "Unknown"
+                returned_str = str(record[3]) if record[3] else "Not returned"
+                status = str(record[4]) if record[4] else "unknown"
+                copies = str(record[5]) if record[5] else "1"
+                
+                status_color = "#27AE60" if status.lower() == "returned" else "#F39C12"
+                
+                # Display book info
+                book_display = book_name[:25] + "..." if len(book_name) > 25 else book_name
+                author_display = author_name[:20] + "..." if len(author_name) > 20 else author_name
+                
+                ctk.CTkLabel(item_frame, text=book_display, width=200).place(x=0, y=20)
+                ctk.CTkLabel(item_frame, text=author_display, width=150).place(x=210, y=20)
+                ctk.CTkLabel(item_frame, text=copies, width=80).place(x=370, y=20)
+                ctk.CTkLabel(item_frame, text=borrowed_str, width=100).place(x=460, y=20)
+                ctk.CTkLabel(item_frame, text=returned_str, width=100).place(x=570, y=20)
+                ctk.CTkLabel(item_frame, text=status, width=80, text_color=status_color).place(x=680, y=20)
+                
+        else:
+            ctk.CTkLabel(
+                content_frame,
+                text="📚 No borrowing history found",
+                font=ctk.CTkFont(size=16),
+                text_color="gray"
+            ).pack(expand=True)
+        
+        cursor.close()
+            
+    except Exception as e:
+        print(f"Debug - History error: {e}")
+        # Fallback to even simpler display
+        try:
+            cursor = connection.cursor()
+            cursor.execute("SELECT book_name, author_name FROM borrowed_history WHERE user = %s", (current_user,))
+            simple_history = cursor.fetchall()
+            
+            if simple_history:
+                simple_frame = ctk.CTkScrollableFrame(content_frame, fg_color="transparent")
+                simple_frame.pack(fill="both", expand=True, padx=20, pady=20)
+                
+                for book in simple_history:
+                    book_frame = ctk.CTkFrame(simple_frame, height=50, corner_radius=10)
+                    book_frame.pack(fill="x", pady=5, padx=10)
+                    
+                    ctk.CTkLabel(
+                        book_frame,
+                        text=f"📖 {book[0]} by {book[1]}",
+                        font=ctk.CTkFont(size=14)
+                    ).pack(pady=10, padx=20)
+            else:
+                ctk.CTkLabel(
+                    content_frame,
+                    text="📚 No borrowing history found",
+                    font=ctk.CTkFont(size=16),
+                    text_color="gray"
+                ).pack(expand=True)
+                
+            cursor.close()
+        except:
+            show_message("Error", "Could not load reading history", "error")
+def show_profile():
+    """Show user profile"""
+    clear_content()
+    
+    ctk.CTkLabel(
+        content_frame,
+        text="👤 My Profile",
+        font=ctk.CTkFont(size=28, weight="bold")
+    ).pack(pady=20)
+    
+    try:
+        cursor = connection.cursor()
+        if user_role == "student":
+            cursor.execute(
+                "SELECT username, email, full_name, created_at FROM students WHERE username = %s",
+                (current_user,)
+            )
+        else:
+            cursor.execute(
+                "SELECT username, admin_level, created_by, created_at FROM admins WHERE username = %s",
+                (current_user,)
+            )
+        
+        profile = cursor.fetchone()
+        
+        if profile:
+            profile_frame = ctk.CTkFrame(content_frame, width=400, height=300, corner_radius=20)
+            profile_frame.pack(pady=50)
+            profile_frame.pack_propagate(False)
+            
+            info_frame = ctk.CTkFrame(profile_frame, fg_color="transparent")
+            info_frame.pack(expand=True, padx=40, pady=40)
+            
+            if user_role == "student":
+                fields = [
+                    ("Username", profile[0]),
+                    ("Email", profile[1]),
+                    ("Full Name", profile[2]),
+                    ("Member Since", profile[3].strftime('%Y-%m-%d') if profile[3] else "Unknown"),
+                    ("Role", "Student")
+                ]
+            else:
+                fields = [
+                    ("Username", profile[0]),
+                    ("Role", f"Admin ({profile[1]})"),
+                    ("Created By", profile[2]),
+                    ("Member Since", profile[3].strftime('%Y-%m-%d') if profile[3] else "Unknown")
+                ]
+            
+            for label, value in fields:
+                field_frame = ctk.CTkFrame(info_frame, fg_color="transparent")
+                field_frame.pack(fill="x", pady=8)
+                
+                ctk.CTkLabel(
+                    field_frame,
+                    text=label + ":",
+                    font=ctk.CTkFont(weight="bold"),
+                    width=120,
+                    anchor="w"
+                ).pack(side="left")
+                
+                ctk.CTkLabel(
+                    field_frame,
+                    text=value,
+                    text_color="gray"
+                ).pack(side="left")
+        
+        cursor.close()
+            
+    except Exception as e:
+        show_message("Error", f"Failed to load profile: {e}", "error")
+
+def show_book_search():
+    """Show advanced book search"""
+    clear_content()
+    
+    ctk.CTkLabel(
+        content_frame,
+        text="🔍 Advanced Search",
+        font=ctk.CTkFont(size=28, weight="bold")
+    ).pack(pady=20)
+    
+    # Search options
+    options_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    options_frame.pack(fill="x", pady=20, padx=20)
+    
+    ctk.CTkLabel(options_frame, text="Search by:", font=ctk.CTkFont(weight="bold")).pack(anchor="w")
+    
+    global search_type
+    search_type = ctk.StringVar(value="title")
+    
+    search_options = [
+        ("📖 Title", "title"),
+        ("✍️ Author", "author"), 
+        ("📚 Genre", "genre"),
+        ("📅 Year", "year")
+    ]
+    
+    options_row = ctk.CTkFrame(options_frame, fg_color="transparent")
+    options_row.pack(fill="x", pady=10)
+    
+    for text, value in search_options:
+        ctk.CTkRadioButton(
+            options_row,
+            text=text,
+            variable=search_type,
+            value=value
+        ).pack(side="left", padx=20)
+    
+    # Search input
+    search_input_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    search_input_frame.pack(fill="x", pady=20, padx=20)
+    
+    global search_entry_advanced
+    search_entry_advanced = ctk.CTkEntry(
+        search_input_frame,
+        placeholder_text="Enter search term...",
+        height=45
+    )
+    search_entry_advanced.pack(side="left", fill="x", expand=True, padx=(0, 10))
+    
+    ctk.CTkButton(
+        search_input_frame,
+        text="🔍 Search",
+        command=perform_advanced_search,
+        height=45,
+        width=120
+    ).pack(side="left")
+    
+    # Results area
+    global search_results_frame
+    search_results_frame = ctk.CTkScrollableFrame(content_frame, fg_color="transparent")
+    search_results_frame.pack(fill="both", expand=True, padx=20, pady=20)
+
+def perform_advanced_search():
+    """Perform advanced search"""
+    search_term = search_entry_advanced.get()
+    search_by = search_type.get()
+    
+    if not search_term:
+        show_message("Search Error", "Please enter a search term!", "error")
+        return
+    
+    # Clear previous results
+    for widget in search_results_frame.winfo_children():
+        widget.destroy()
+    
+    try:
+        cursor = connection.cursor()
+        
+        if search_by == "title":
+            cursor.execute("SELECT * FROM books_available WHERE book_name LIKE %s", (f"%{search_term}%",))
+        elif search_by == "author":
+            cursor.execute("SELECT * FROM books_available WHERE author_name LIKE %s", (f"%{search_term}%",))
+        elif search_by == "genre":
+            cursor.execute("SELECT * FROM books_available WHERE genre LIKE %s", (f"%{search_term}%",))
+        elif search_by == "year":
+            cursor.execute("SELECT * FROM books_available WHERE year_of_publication = %s", (int(search_term),))
+        
+        results = cursor.fetchall()
+        
+        if results:
+            ctk.CTkLabel(
+                search_results_frame,
+                text=f"Found {len(results)} result(s)",
+                font=ctk.CTkFont(weight="bold")
+            ).pack(anchor="w", pady=(0, 20))
+            
+            for book in results:
+                book_card = ctk.CTkFrame(search_results_frame, corner_radius=15)
+                book_card.pack(fill="x", pady=10, padx=10)
+                
+                # Book info
+                info_frame = ctk.CTkFrame(book_card, fg_color="transparent")
+                info_frame.pack(side="left", fill="both", expand=True, padx=20, pady=15)
+                
+                ctk.CTkLabel(
+                    info_frame,
+                    text=book[1],
+                    font=ctk.CTkFont(size=16, weight="bold"),
+                    anchor="w"
+                ).pack(anchor="w")
+                
+                ctk.CTkLabel(
+                    info_frame,
+                    text=f"by {book[2]} • {book[4]} • {book[3]}",
+                    font=ctk.CTkFont(size=12),
+                    text_color="gray",
+                    anchor="w"
+                ).pack(anchor="w", pady=5)
+                
+                ctk.CTkLabel(
+                    info_frame,
+                    text=f"Available: {book[5]} copies",
+                    font=ctk.CTkFont(size=11, weight="bold"),
+                    text_color="#2E86AB",
+                    anchor="w"
+                ).pack(anchor="w")
+                
+                # Borrow button
+                ctk.CTkButton(
+                    book_card,
+                    text="📖 Borrow",
+                    command=lambda b=book: borrow_book_dialog(b),
+                    width=100,
+                    height=35,
+                    fg_color="#2E86AB"
+                ).pack(side="right", padx=20, pady=15)
+                
+        else:
+            ctk.CTkLabel(
+                search_results_frame,
+                text="🔍 No books found matching your search criteria",
+                font=ctk.CTkFont(size=16),
+                text_color="gray"
+            ).pack(expand=True)
+        
+        cursor.close()
+            
+    except Exception as e:
+        show_message("Search Error", f"Search failed: {e}", "error")
+
+def show_librarian_dashboard():
+    """Show librarian dashboard"""
+    clear_window()
+    
+    # Header
+    header_frame = ctk.CTkFrame(root, height=80, fg_color="#A23B72")
+    header_frame.pack(fill="x", padx=20, pady=10)
+    header_frame.pack_propagate(False)
+    
+    ctk.CTkLabel(
+        header_frame,
+        text=f"👑 Librarian Dashboard - {current_user}",
+        font=ctk.CTkFont(size=22, weight="bold"),
+        text_color="white"
+    ).pack(side="left", padx=30, pady=20)
+    
+    ctk.CTkButton(
+        header_frame,
+        text="🚪 Logout",
+        command=logout,
+        width=100,
+        fg_color="transparent",
+        border_width=2,
+        border_color="white",
+        text_color="white",
+        hover_color="#7D2C58"
+    ).pack(side="right", padx=30, pady=20)
+    
+    # Navigation sidebar
+    nav_frame = ctk.CTkFrame(root, width=250, fg_color=("gray90", "gray16"))
+    nav_frame.pack(side="left", fill="y", padx=(20, 10), pady=20)
+    nav_frame.pack_propagate(False)
+    
+    nav_buttons = [
+        ("📚 Manage Books", show_manage_books),
+        ("👥 User Management", show_user_management),
+        ("📊 Library Stats", show_library_stats),
+        ("🔍 Search Books", show_book_search),
+        ("👤 Profile", show_profile)
+    ]
+    
+    for text, command in nav_buttons:
+        btn = ctk.CTkButton(
+            nav_frame,
+            text=text,
+            command=command,
+            height=50,
+            fg_color="transparent",
+            text_color=("gray10", "gray90"),
+            hover_color=("gray70", "gray30"),
+            anchor="w",
+            font=ctk.CTkFont(size=14)
+        )
+        btn.pack(fill="x", padx=10, pady=5)
+    
+    # Main content area
+    global content_frame
+    content_frame = ctk.CTkFrame(root, fg_color="transparent")
+    content_frame.pack(side="right", fill="both", expand=True, padx=(10, 20), pady=20)
+    
+    show_manage_books()
+
+def show_superadmin_dashboard():
+    """Show superadmin dashboard"""
+    clear_window()
+    
+    # Header
+    header_frame = ctk.CTkFrame(root, height=80, fg_color="#E74C3C")
+    header_frame.pack(fill="x", padx=20, pady=10)
+    header_frame.pack_propagate(False)
+    
+    ctk.CTkLabel(
+        header_frame,
+        text=f"👑 Super Admin Dashboard - {current_user}",
+        font=ctk.CTkFont(size=22, weight="bold"),
+        text_color="white"
+    ).pack(side="left", padx=30, pady=20)
+    
+    ctk.CTkButton(
+        header_frame,
+        text="🚪 Logout",
+        command=logout,
+        width=100,
+        fg_color="transparent",
+        border_width=2,
+        border_color="white",
+        text_color="white",
+        hover_color="#C0392B"
+    ).pack(side="right", padx=30, pady=20)
+    
+    # Navigation sidebar
+    nav_frame = ctk.CTkFrame(root, width=250, fg_color=("gray90", "gray16"))
+    nav_frame.pack(side="left", fill="y", padx=(20, 10), pady=20)
+    nav_frame.pack_propagate(False)
+    
+    nav_buttons = [
+        ("📚 Manage Books", show_manage_books),
+        ("👥 User Management", show_user_management),
+        ("👑 Admin Management", show_admin_management),
+        ("📊 Library Stats", show_library_stats),
+        ("⚙️ System Settings", show_system_settings)
+    ]
+    
+    for text, command in nav_buttons:
+        btn = ctk.CTkButton(
+            nav_frame,
+            text=text,
+            command=command,
+            height=50,
+            fg_color="transparent",
+            text_color=("gray10", "gray90"),
+            hover_color=("gray70", "gray30"),
+            anchor="w",
+            font=ctk.CTkFont(size=14)
+        )
+        btn.pack(fill="x", padx=10, pady=5)
+    
+    # Main content area
+    global content_frame
+    content_frame = ctk.CTkFrame(root, fg_color="transparent")
+    content_frame.pack(side="right", fill="both", expand=True, padx=(10, 20), pady=20)
+    
+    show_manage_books()
+
+def show_manage_books():
+    """Show book management interface"""
+    clear_content()
+    
+    ctk.CTkLabel(
+        content_frame,
+        text="📚 Book Management",
+        font=ctk.CTkFont(size=28, weight="bold")
+    ).pack(pady=20)
+    
+    # Action buttons
+    action_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+    action_frame.pack(fill="x", pady=20, padx=20)
+    
+    ctk.CTkButton(
+        action_frame,
+        text="➕ Add New Book",
+        command=show_add_book_dialog,
+        height=45,
+        fg_color="#27AE60",
+        hover_color="#219955"
+    ).pack(side="left", padx=(0, 10))
+    
+    ctk.CTkButton(
+        action_frame,
+        text="🔄 Refresh",
+        command=refresh_books_management,
+        height=45,
+        fg_color="transparent",
+        border_width=2
+    ).pack(side="left")
+    
+    # Books list
+    global books_management_frame
+    books_management_frame = ctk.CTkScrollableFrame(content_frame, fg_color="transparent")
+    books_management_frame.pack(fill="both", expand=True, padx=20, pady=20)
+    
+    refresh_books_management()
+
+def refresh_books_management():
+    """Refresh books management view"""
+    global books_management_frame
+    
+    if books_management_frame:
+        for widget in books_management_frame.winfo_children():
+            widget.destroy()
+    else:
+        # If books_management_frame doesn't exist, create it
+        books_management_frame = ctk.CTkScrollableFrame(content_frame, fg_color="transparent")
+        books_management_frame.pack(fill="both", expand=True, padx=20, pady=20)
+    
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM books_available ORDER BY bookid")
+        books = cursor.fetchall()
+        
+        if books:
+            # Header
+            header_frame = ctk.CTkFrame(books_management_frame, height=50)
+            header_frame.pack(fill="x", pady=(0, 10))
+            header_frame.pack_propagate(False)
+            
+            headers = ["ID", "Title", "Author", "Year", "Genre", "Available", "Actions"]
+            
+            for i, header in enumerate(headers):
+                ctk.CTkLabel(
+                    header_frame,
+                    text=header,
+                    font=ctk.CTkFont(weight="bold")
+                ).place(x=i*150 + 10, y=15)
+            
+            # Books list
+            for book in books:
+                book_row = ctk.CTkFrame(books_management_frame, height=60)
+                book_row.pack(fill="x", pady=5)
+                book_row.pack_propagate(False)
+                
+                # Book info
+                ctk.CTkLabel(book_row, text=str(book[0]), width=50).place(x=10, y=20)
+                ctk.CTkLabel(book_row, text=book[1][:20] + "...", width=150).place(x=60, y=20)
+                ctk.CTkLabel(book_row, text=book[2][:15] + "...", width=150).place(x=210, y=20)
+                ctk.CTkLabel(book_row, text=str(book[3]), width=150).place(x=360, y=20)
+                ctk.CTkLabel(book_row, text=book[4], width=150).place(x=510, y=20)
+                ctk.CTkLabel(book_row, text=str(book[5]), width=150).place(x=660, y=20)
+                
+                # Action buttons
+                ctk.CTkButton(
+                    book_row,
+                    text="✏️ Edit",
+                    command=lambda b=book: show_edit_book_dialog(b),
+                    width=70,
+                    height=30,
+                    fg_color="#F39C12",
+                    hover_color="#D68910"
+                ).place(x=810, y=15)
+                
+                ctk.CTkButton(
+                    book_row,
+                    text="🗑️ Delete",
+                    command=lambda b=book: delete_book(b[0]),
+                    width=70,
+                    height=30,
+                    fg_color="#E74C3C",
+                    hover_color="#C0392B"
+                ).place(x=890, y=15)
+                
+        else:
+            ctk.CTkLabel(
+                books_management_frame,
+                text="📚 No books in library",
+                font=ctk.CTkFont(size=16),
+                text_color="gray"
+            ).pack(expand=True)
+        
+        cursor.close()
+            
+    except Exception as e:
+        show_message("Error", f"Failed to load books: {e}", "error")
+
+def show_add_book_dialog():
+    """Show add book dialog"""
+    dialog = ctk.CTkToplevel(root)
+    dialog.title("Add New Book - BookNest")
+    dialog.geometry("500x500")
+    dialog.transient(root)
+    dialog.grab_set()
+    
+    ctk.CTkLabel(
+        dialog,
+        text="📚 Add New Book",
+        font=ctk.CTkFont(size=24, weight="bold")
+    ).pack(pady=30)
+    
+    # Form
+    form_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+    form_frame.pack(fill="both", expand=True, padx=40, pady=20)
+    
+    fields = [
+        ("Book Title", "title"),
+        ("Author Name", "author"),
+        ("Year of Publication", "year"),
+        ("Genre", "genre"),
+        ("Total Copies", "copies")
+    ]
+    
+    book_fields_local = {}
+    
+    for label, key in fields:
+        ctk.CTkLabel(form_frame, text=label, font=ctk.CTkFont(weight="bold")).pack(anchor="w", pady=(15, 5))
+        entry = ctk.CTkEntry(
+            form_frame,
+            placeholder_text=f"Enter {label.lower()}",
+            width=400,
+            height=40
+        )
+        entry.pack(fill="x", pady=5)
+        book_fields_local[key] = entry
+    
+    def add_book():
+        try:
+            title = book_fields_local['title'].get()
+            author = book_fields_local['author'].get()
+            year = book_fields_local['year'].get()
+            genre = book_fields_local['genre'].get()
+            copies = book_fields_local['copies'].get()
+            
+            if not all([title, author, year, genre, copies]):
+                show_message("Error", "All fields are required!", "error")
+                return
+            
+            cursor = connection.cursor()
+            cursor.execute(
+                "INSERT INTO books_available (book_name, author_name, year_of_publication, genre, availability) VALUES (%s, %s, %s, %s, %s)",
+                (title, author, int(year), genre, int(copies))
+            )
+            connection.commit()
+            cursor.close()
+            
+            show_message("Success!", "Book added successfully!", "info")
+            dialog.destroy()
+            refresh_books_management()
+            
+        except ValueError:
+            show_message("Error", "Year and copies must be valid numbers!", "error")
+        except Exception as e:
+            show_message("Error", f"Failed to add book: {e}", "error")
+    
+    ctk.CTkButton(
+        dialog,
+        text="➕ Add Book",
+        command=add_book,
+        height=45,
+        fg_color="#27AE60"
+    ).pack(pady=30)
+
+def show_edit_book_dialog(book):
+    """Show edit book dialog"""
+    dialog = ctk.CTkToplevel(root)
+    dialog.title(f"Edit {book[1]} - BookNest")
+    dialog.geometry("500x500")
+    dialog.transient(root)
+    dialog.grab_set()
+    
+    ctk.CTkLabel(
+        dialog,
+        text=f"✏️ Edit {book[1]}",
+        font=ctk.CTkFont(size=24, weight="bold")
+    ).pack(pady=30)
+    
+    # Form
+    form_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+    form_frame.pack(fill="both", expand=True, padx=40, pady=20)
+    
+    fields = [
+        ("Book Title", "title", book[1]),
+        ("Author Name", "author", book[2]),
+        ("Year of Publication", "year", book[3]),
+        ("Genre", "genre", book[4]),
+        ("Available Copies", "copies", book[5])
+    ]
+    
+    book_fields_local = {}
+    
+    for label, key, value in fields:
+        ctk.CTkLabel(form_frame, text=label, font=ctk.CTkFont(weight="bold")).pack(anchor="w", pady=(15, 5))
+        entry = ctk.CTkEntry(
+            form_frame,
+            placeholder_text=f"Enter {label.lower()}",
+            width=400,
+            height=40
+        )
+        entry.insert(0, str(value))
+        entry.pack(fill="x", pady=5)
+        book_fields_local[key] = entry
+    
+    def update_book():
+        try:
+            title = book_fields_local['title'].get()
+            author = book_fields_local['author'].get()
+            year = book_fields_local['year'].get()
+            genre = book_fields_local['genre'].get()
+            copies = book_fields_local['copies'].get()
+            
+            if not all([title, author, year, genre, copies]):
+                show_message("Error", "All fields are required!", "error")
+                return
+            
+            cursor = connection.cursor()
+            cursor.execute(
+                "UPDATE books_available SET book_name = %s, author_name = %s, year_of_publication = %s, genre = %s, availability = %s WHERE bookid = %s",
+                (title, author, int(year), genre, int(copies), book[0])
+            )
+            connection.commit()
+            cursor.close()
+            
+            show_message("Success!", "Book updated successfully!", "info")
+            dialog.destroy()
+            refresh_books_management()
+            
+        except ValueError:
+            show_message("Error", "Year and copies must be valid numbers!", "error")
+        except Exception as e:
+            show_message("Error", f"Failed to update book: {e}", "error")
+    
+    ctk.CTkButton(
+        dialog,
+        text="💾 Update Book",
+        command=update_book,
+        height=45,
+        fg_color="#3498DB"
+    ).pack(pady=30)
+
+def delete_book(book_id):
+    """Delete a book"""
+    if not messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this book?"):
+        return
+    
+    try:
+        cursor = connection.cursor()
+        cursor.execute("DELETE FROM books_available WHERE bookid = %s", (book_id,))
+        connection.commit()
+        cursor.close()
+        
+        show_message("Success!", "Book deleted successfully!", "info")
+        refresh_books_management()
+        
+    except Exception as e:
+        show_message("Error", f"Failed to delete book: {e}", "error")
+
+def show_user_management():
+    """Show user management interface"""
+    clear_content()
+    
+    ctk.CTkLabel(
+        content_frame,
+        text="👥 User Management",
+        font=ctk.CTkFont(size=28, weight="bold")
+    ).pack(pady=20)
+    
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT username, email, full_name, created_at FROM students ORDER BY created_at DESC")
+        users = cursor.fetchall()
+        
+        if users:
+            users_frame = ctk.CTkScrollableFrame(content_frame, fg_color="transparent")
+            users_frame.pack(fill="both", expand=True, padx=20, pady=20)
+            
+            # Header
+            header_frame = ctk.CTkFrame(users_frame, height=50)
+            header_frame.pack(fill="x", pady=(0, 10))
+            header_frame.pack_propagate(False)
+            
+            headers = ["Username", "Email", "Full Name", "Joined", "Actions"]
+            widths = [150, 200, 200, 120, 100]
+            
+            for i, (header, width) in enumerate(zip(headers, widths)):
+                ctk.CTkLabel(
+                    header_frame,
+                    text=header,
+                    font=ctk.CTkFont(weight="bold"),
+                    width=width
+                ).place(x=sum(widths[:i]) + i*10, y=15)
+            
+            # Users list
+            for user in users:
+                user_row = ctk.CTkFrame(users_frame, height=60)
+                user_row.pack(fill="x", pady=5)
+                user_row.pack_propagate(False)
+                
+                ctk.CTkLabel(user_row, text=user[0], width=150).place(x=0, y=20)
+                ctk.CTkLabel(user_row, text=user[1], width=200).place(x=160, y=20)
+                ctk.CTkLabel(user_row, text=user[2], width=200).place(x=370, y=20)
+                ctk.CTkLabel(user_row, text=user[3].strftime('%Y-%m-%d'), width=120).place(x=580, y=20)
+                
+                ctk.CTkButton(
+                    user_row,
+                    text="🗑️ Delete",
+                    command=lambda u=user[0]: delete_user(u),
+                    width=80,
+                    height=30,
+                    fg_color="#E74C3C",
+                    hover_color="#C0392B"
+                ).place(x=710, y=15)
+                
+        else:
+            ctk.CTkLabel(
+                content_frame,
+                text="👥 No users found",
+                font=ctk.CTkFont(size=16),
+                text_color="gray"
+            ).pack(expand=True)
+        
+        cursor.close()
+            
+    except Exception as e:
+        show_message("Error", f"Failed to load users: {e}", "error")
+
+def delete_user(username):
+    """Delete a user"""
+    if not messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete user '{username}'?"):
+        return
+    
+    try:
+        cursor = connection.cursor()
+        cursor.execute("DELETE FROM students WHERE username = %s", (username,))
+        connection.commit()
+        cursor.close()
+        
+        show_message("Success!", f"User '{username}' deleted successfully!", "info")
+        show_user_management()
+        
+    except Exception as e:
+        show_message("Error", f"Failed to delete user: {e}", "error")
+
+def show_admin_management():
+    """Show admin management interface (superadmin only)"""
+    clear_content()
+    
+    ctk.CTkLabel(
+        content_frame,
+        text="👑 Admin Management",
+        font=ctk.CTkFont(size=28, weight="bold")
+    ).pack(pady=20)
+    
+    # Add admin button
+    ctk.CTkButton(
+        content_frame,
+        text="➕ Add Admin",
+        command=show_add_admin_dialog,
+        height=45,
+        fg_color="#27AE60",
+        hover_color="#219955"
+    ).pack(pady=20)
+    
+    try:
+        cursor = connection.cursor()
+        cursor.execute("SELECT username, admin_level, created_by, created_at FROM admins ORDER BY created_at DESC")
+        admins = cursor.fetchall()
+        
+        if admins:
+            admins_frame = ctk.CTkScrollableFrame(content_frame, fg_color="transparent")
+            admins_frame.pack(fill="both", expand=True, padx=20, pady=20)
+            
+            # Header
+            header_frame = ctk.CTkFrame(admins_frame, height=50)
+            header_frame.pack(fill="x", pady=(0, 10))
+            header_frame.pack_propagate(False)
+            
+            headers = ["Username", "Level", "Created By", "Created At", "Actions"]
+            widths = [150, 100, 150, 120, 100]
+            
+            for i, (header, width) in enumerate(zip(headers, widths)):
+                ctk.CTkLabel(
+                    header_frame,
+                    text=header,
+                    font=ctk.CTkFont(weight="bold"),
+                    width=width
+                ).place(x=sum(widths[:i]) + i*10, y=15)
+            
+            # Admins list
+            for admin in admins:
+                admin_row = ctk.CTkFrame(admins_frame, height=60)
+                admin_row.pack(fill="x", pady=5)
+                admin_row.pack_propagate(False)
+                
+                ctk.CTkLabel(admin_row, text=admin[0], width=150).place(x=0, y=20)
+                ctk.CTkLabel(admin_row, text=admin[1], width=100).place(x=160, y=20)
+                ctk.CTkLabel(admin_row, text=admin[2], width=150).place(x=270, y=20)
+                ctk.CTkLabel(admin_row, text=admin[3].strftime('%Y-%m-%d'), width=120).place(x=430, y=20)
+                
+                if admin[0] != current_user:  # Can't delete yourself
+                    ctk.CTkButton(
+                        admin_row,
+                        text="🗑️ Delete",
+                        command=lambda a=admin[0]: delete_admin(a),
+                        width=80,
+                        height=30,
+                        fg_color="#E74C3C",
+                        hover_color="#C0392B"
+                    ).place(x=560, y=15)
+                
+        else:
+            ctk.CTkLabel(
+                content_frame,
+                text="👑 No admins found",
+                font=ctk.CTkFont(size=16),
+                text_color="gray"
+            ).pack(expand=True)
+        
+        cursor.close()
+            
+    except Exception as e:
+        show_message("Error", f"Failed to load admins: {e}", "error")
+
+def show_add_admin_dialog():
+    """Show add admin dialog"""
+    dialog = ctk.CTkToplevel(root)
+    dialog.title("Add New Admin - BookNest")
+    dialog.geometry("500x400")
+    dialog.transient(root)
+    dialog.grab_set()
+    
+    ctk.CTkLabel(
+        dialog,
+        text="👑 Add New Admin",
+        font=ctk.CTkFont(size=24, weight="bold")
+    ).pack(pady=30)
+    
+    # Form
+    form_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+    form_frame.pack(fill="both", expand=True, padx=40, pady=20)
+    
+    fields = [
+        ("Username", "username"),
+        ("Password", "password"),
+        ("Admin Level", "level")
+    ]
+    
+    admin_fields = {}
+    
+    for label, key in fields:
+        ctk.CTkLabel(form_frame, text=label, font=ctk.CTkFont(weight="bold")).pack(anchor="w", pady=(15, 5))
+        
+        if key == "level":
+            # Dropdown for admin level
+            level_var = ctk.StringVar(value="librarian")
+            level_menu = ctk.CTkOptionMenu(
+                form_frame,
+                values=["librarian", "superadmin"],
+                variable=level_var,
+                width=400,
+                height=40
+            )
+            level_menu.pack(fill="x", pady=5)
+            admin_fields[key] = level_var
+        else:
+            entry = ctk.CTkEntry(
+                form_frame,
+                placeholder_text=f"Enter {label.lower()}",
+                width=400,
+                height=40,
+                show="•" if key == "password" else None
+            )
+            entry.pack(fill="x", pady=5)
+            admin_fields[key] = entry
+    
+    def add_admin():
+        try:
+            username = admin_fields['username'].get()
+            password = admin_fields['password'].get()
+            level = admin_fields['level'].get()
+            
+            if not all([username, password]):
+                show_message("Error", "Username and password are required!", "error")
+                return
+            
+            cursor = connection.cursor()
+            
+            # Check if username exists
+            cursor.execute("SELECT username FROM admins WHERE username = %s", (username,))
+            if cursor.fetchone():
+                show_message("Error", "Username already exists!", "error")
+                return
+            
+            hashed_password = hash_password(password)
+            cursor.execute(
+                "INSERT INTO admins (username, password, admin_level, created_by) VALUES (%s, %s, %s, %s)",
+                (username, hashed_password, level, current_user)
+            )
+            connection.commit()
+            cursor.close()
+            
+            show_message("Success!", f"Admin '{username}' added successfully!", "info")
+            dialog.destroy()
+            show_admin_management()
+            
+        except Exception as e:
+            show_message("Error", f"Failed to add admin: {e}", "error")
+    
+    ctk.CTkButton(
+        dialog,
+        text="➕ Add Admin",
+        command=add_admin,
+        height=45,
+        fg_color="#27AE60"
+    ).pack(pady=30)
+
+def delete_admin(username):
+    """Delete an admin"""
+    if not messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete admin '{username}'?"):
+        return
+    
+    try:
+        cursor = connection.cursor()
+        cursor.execute("DELETE FROM admins WHERE username = %s", (username,))
+        connection.commit()
+        cursor.close()
+        
+        show_message("Success!", f"Admin '{username}' deleted successfully!", "info")
+        show_admin_management()
+        
+    except Exception as e:
+        show_message("Error", f"Failed to delete admin: {e}", "error")
+
+def show_library_stats():
+    """Show library statistics"""
+    clear_content()
+    
+    ctk.CTkLabel(
+        content_frame,
+        text="📊 Library Statistics",
+        font=ctk.CTkFont(size=28, weight="bold")
+    ).pack(pady=20)
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Get stats
+        cursor.execute("SELECT COUNT(*) FROM books_available")
+        total_books = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT SUM(availability) FROM books_available")
+        available_books = cursor.fetchone()[0] or 0
+        
+        cursor.execute("SELECT COUNT(*) FROM students")
+        total_students = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*) FROM books_borrowed")
+        borrowed_books = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*) FROM admins")
+        total_admins = cursor.fetchone()[0]
+        
+        # Stats grid
+        stats_frame = ctk.CTkFrame(content_frame, corner_radius=20)
+        stats_frame.pack(fill="x", padx=50, pady=30)
+        
+        stats = [
+            ("📚 Total Books", total_books, "#2E86AB"),
+            ("📖 Available Books", available_books, "#27AE60"), 
+            ("👥 Total Students", total_students, "#A23B72"),
+            ("📖 Borrowed Books", borrowed_books, "#F39C12"),
+            ("👑 Total Admins", total_admins, "#E74C3C")
+        ]
+        
+        row, col = 0, 0
+        max_cols = 3
+        
+        for stat_name, stat_value, color in stats:
+            stat_card = ctk.CTkFrame(
+                stats_frame,
+                width=200,
+                height=120,
+                corner_radius=15,
+                fg_color=color
+            )
+            stat_card.grid(row=row, column=col, padx=15, pady=15, sticky="nsew")
+            stat_card.grid_propagate(False)
+            
+            ctk.CTkLabel(
+                stat_card,
+                text=stat_name,
+                font=ctk.CTkFont(size=14),
+                text_color="white"
+            ).pack(pady=(20, 5))
+            
+            ctk.CTkLabel(
+                stat_card,
+                text=str(stat_value),
+                font=ctk.CTkFont(size=32, weight="bold"),
+                text_color="white"
+            ).pack()
+            
+            col += 1
+            if col >= max_cols:
+                col = 0
+                row += 1
+        
+        # Configure grid weights
+        for i in range(max_cols):
+            stats_frame.grid_columnconfigure(i, weight=1)
+        
+        # Popular books
+        ctk.CTkLabel(
+            content_frame,
+            text="🔥 Popular Books",
+            font=ctk.CTkFont(size=20, weight="bold")
+        ).pack(pady=(40, 20))
+        
+        cursor.execute("""
+            SELECT book_name, author_name, COUNT(*) as borrow_count 
+            FROM borrowed_history 
+            GROUP BY book_name, author_name 
+            ORDER BY borrow_count DESC 
+            LIMIT 5
+        """)
+        popular_books = cursor.fetchall()
+        
+        if popular_books:
+            popular_frame = ctk.CTkFrame(content_frame, corner_radius=15)
+            popular_frame.pack(fill="x", padx=50, pady=20)
+            
+            for i, book in enumerate(popular_books):
+                book_row = ctk.CTkFrame(popular_frame, fg_color="transparent")
+                book_row.pack(fill="x", padx=20, pady=10)
+                
+                ctk.CTkLabel(
+                    book_row,
+                    text=f"{i+1}. {book[0]}",
+                    font=ctk.CTkFont(weight="bold"),
+                    anchor="w"
+                ).pack(side="left", padx=(0, 20))
+                
+                ctk.CTkLabel(
+                    book_row,
+                    text=f"by {book[1]}",
+                    text_color="gray",
+                    anchor="w"
+                ).pack(side="left", padx=(0, 20))
+                
+                ctk.CTkLabel(
+                    book_row,
+                    text=f"📖 {book[2]} borrows",
+                    text_color="#2E86AB",
+                    anchor="w"
+                ).pack(side="right")
+        
+        cursor.close()
+            
+    except Exception as e:
+        show_message("Error", f"Failed to load statistics: {e}", "error")
+
+def show_system_settings():
+    """Show system settings (superadmin only)"""
+    clear_content()
+    
+    ctk.CTkLabel(
+        content_frame,
+        text="⚙️ System Settings",
+        font=ctk.CTkFont(size=28, weight="bold")
+    ).pack(pady=20)
+    
+    settings_frame = ctk.CTkFrame(content_frame, corner_radius=20)
+    settings_frame.pack(fill="x", padx=50, pady=30)
+    
+    # Appearance settings
+    ctk.CTkLabel(
+        settings_frame,
+        text="🎨 Appearance",
+        font=ctk.CTkFont(size=18, weight="bold")
+    ).pack(anchor="w", padx=30, pady=(20, 10))
+    
+    appearance_var = ctk.StringVar(value="Dark")
+    
+    def change_appearance():
+        ctk.set_appearance_mode(appearance_var.get())
+    
+    ctk.CTkRadioButton(
+        settings_frame,
+        text="🌙 Dark Mode",
+        variable=appearance_var,
+        value="Dark",
+        command=change_appearance
+    ).pack(anchor="w", padx=50, pady=5)
+    
+    ctk.CTkRadioButton(
+        settings_frame,
+        text="☀️ Light Mode", 
+        variable=appearance_var,
+        value="Light",
+        command=change_appearance
+    ).pack(anchor="w", padx=50, pady=5)
+    
+    # System actions
+    ctk.CTkLabel(
+        settings_frame,
+        text="🔧 System Actions",
+        font=ctk.CTkFont(size=18, weight="bold")
+    ).pack(anchor="w", padx=30, pady=(30, 10))
+    
+    action_frame = ctk.CTkFrame(settings_frame, fg_color="transparent")
+    action_frame.pack(fill="x", padx=50, pady=10)
+    
+    ctk.CTkButton(
+        action_frame,
+        text="🗃️ Backup Database",
+        command=backup_database,
+        height=40,
+        fg_color="#3498DB"
+    ).pack(side="left", padx=(0, 10))
+    
+    ctk.CTkButton(
+        action_frame,
+        text="🔄 Reset System",
+        command=reset_system,
+        height=40,
+        fg_color="#E74C3C"
+    ).pack(side="left")
+
+def backup_database():
+    """Backup database (placeholder)"""
+    show_message("Backup", "Database backup functionality would be implemented here.", "info")
+
+def reset_system():
+    """Reset system (placeholder)"""
+    if messagebox.askyesno("Reset System", "⚠️ WARNING: This will reset all system data!\nAre you absolutely sure?"):
+        show_message("Reset", "System reset functionality would be implemented here.", "warning")
+
+def clear_content():
+    """Clear content frame"""
+    global content_frame, books_management_frame
+    if content_frame:
+        for widget in content_frame.winfo_children():
+            widget.destroy()
+    books_management_frame = None  # Reset when clearing content
+
+def logout():
+    """Logout user"""
+    global current_user, user_role
+    current_user = None
+    user_role = None
+    show_login_screen()
+
+def main():
+    """Main application entry point"""
+    connect_db()
+    setup_gui()
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
